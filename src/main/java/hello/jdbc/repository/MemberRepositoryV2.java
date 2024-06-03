@@ -14,22 +14,19 @@ import java.util.NoSuchElementException;
  * fileName       : MemberRepositoryV0
  * author         : Sora
  * date           : 2024-05-30
- * description    :
+ * description    : JDBC - ConnectionParam ( 커넥션을 파라미터로 보내줌 )
  * ===========================================================
  * DATE              AUTHOR             NOTE
  * -----------------------------------------------------------
  * 2024-05-30        Sora       최초 생성
  */
 
-/**
- * JDBC - DataSource 사용, JdbcUtils 사용
- */
 @Slf4j
-public class MemberRepositoryV1 {
+public class MemberRepositoryV2 {
 
     private final DataSource dataSource;
 
-    public MemberRepositoryV1(DataSource dataSource) {
+    public MemberRepositoryV2(DataSource dataSource) {
         this.dataSource = dataSource;
     }
 
@@ -86,6 +83,38 @@ public class MemberRepositoryV1 {
         }
     }
 
+    public Member findById(Connection con,String memberId) throws SQLException {
+        String sql = "select * from Member where member_id = ?";
+
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+
+        try {
+            pstmt = con.prepareStatement(sql);
+            pstmt.setString(1, memberId);
+
+            rs = pstmt.executeQuery();
+            if(rs.next()){  // 커서가 있어서 next() 해야지 데이터부터 시작함
+                Member member = new Member();
+                member.setMemberId(rs.getString("member_id"));
+                member.setMoney(rs.getInt("money"));
+
+                return member;
+            }else{
+                throw new NoSuchElementException("member not found memberId=" + memberId);
+            }
+
+        } catch (Exception e) {
+            log.info("error",e);
+            throw e;
+        }finally {
+            // connection은 세션유지를 위해 service단에서 닫아줘야함
+            JdbcUtils.closeResultSet(rs);
+            JdbcUtils.closeStatement(pstmt);
+           // JdbcUtils.closeConnection(con);
+        }
+    }
+
     public void update(String memberId, int money) throws SQLException {
         String sql = "update Member set money=? where member_id=?";
 
@@ -104,6 +133,27 @@ public class MemberRepositoryV1 {
             throw e;
         }finally {
             close(con, pstmt, null);
+        }
+
+    }
+
+    public void update(Connection con,String memberId, int money) throws SQLException {
+        String sql = "update Member set money=? where member_id=?";
+
+        PreparedStatement pstmt = null;
+
+        try {
+            pstmt = con.prepareStatement(sql);
+            pstmt.setInt(1,money);
+            pstmt.setString(2, memberId);
+            int resultSize = pstmt.executeUpdate();
+            log.info("resultSize={}", resultSize);
+        } catch (Exception e) {
+            log.info("error",e);
+            throw e;
+        }finally {
+            // connection은 세션유지를 위해 service단에서 닫아줘야함
+            JdbcUtils.closeStatement(pstmt);
         }
 
     }
